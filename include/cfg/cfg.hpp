@@ -30,6 +30,8 @@ public:
     set<Node *> Dom;
     set<Node *> frontier;
 
+    set<string> phis;
+
     int get_name()
     {
         return name + 1;
@@ -227,7 +229,6 @@ void get_dominator_tree(
     vector<Node *> nodes, Node *root)
 {
     // это новый граф, с новыми ребрами, но старым содержимым в вершинах
-
     for (auto n : nodes)
     {
         // ищем idom и цепляем его к графу
@@ -272,25 +273,54 @@ void get_dtree(vector<Node*> &postorder) {
     get_dominator_tree(reverse_postorder, root_node); // считаем дерево доминаторов перебором ):
 }
 
-map<Node *, set<Node *>> get_frontiers(map<Node *, Node *> &doms)
+void set_frontiers(vector<Node*> &nodes)
 {
-    map<Node *, set<Node *>> frontiers;
-    for (auto pair : doms)
+    for (auto b : nodes)
     {
-        Node *b = pair.first;
         if (b->preds.size() >= 2)
         {
             for (auto p : b->preds)
             {
                 auto runner = p;
-                while (runner != doms[b])
+                while (runner != b->idom)
                 {
-                    frontiers[runner].insert(b);
-                    runner = doms[runner];
+                    runner->frontier.insert(b);
+                    runner = runner->idom;
                 }
             }
         }
     }
-
-    return frontiers;
 }
+
+set<Node*> get_frontier(set<Node*> &S) {
+    set<Node*> res;
+
+    for (auto n : S) {
+        for (auto b : n->frontier) {
+            res.insert(b);
+        }
+    }
+
+    return res;
+}
+
+set<Node*> get_iterate_frontier(set<Node*> &S) {
+
+    set<Node*> F = S;
+
+    bool changed = true;
+    while (changed) {
+        changed = false;
+        auto uFS = F;
+        for (auto n : S) {
+            uFS.insert(n);
+        }
+        auto nF = get_frontier(uFS);
+        if (nF != F) {
+            changed = true;
+            F = nF;
+        }
+    }
+    return F;
+}
+
