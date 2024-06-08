@@ -12,6 +12,8 @@ public:
     virtual ~OperatorAST(){};
     virtual void codegen() {};
     virtual bool is_return() { return false; };
+    virtual bool is_while() { return false; }
+    virtual bool is_if() { return false; }
 };
 
 class AssignAST : public OperatorAST
@@ -163,3 +165,5 @@ public:
     }
 };
 
+// IFOperatorAST в if.hpp
+// WhileAST в while.hpp

@@ -5,6 +5,7 @@ class Block
 {
 public:
     vector<OperatorAST *> operators;
+    Block(){}
     Block(const vector<OperatorAST *> &ops) : operators(ops) {}
     ~Block()
     {

@@ -1,3 +1,5 @@
+
+#pragma once
 #include "block.hpp"
 
 class WhileAST : OperatorAST
@@ -5,6 +7,8 @@ class WhileAST : OperatorAST
 public:
     ExprAST *cond;
     Block *body;
+
+    bool is_while() {return true;}
 
     WhileAST(ExprAST *cond, Block *body)
         : cond(cond), body(body) {}

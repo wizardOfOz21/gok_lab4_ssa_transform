@@ -1,3 +1,5 @@
+#pragma once 
+
 #include "block.hpp"
 
 class IFOperatorAST: OperatorAST
@@ -6,6 +8,8 @@ public:
     ExprAST *cond;
     Block *_then;
     Block *_else;
+
+    bool is_if() {return true;}
 
     IFOperatorAST(ExprAST *cond, Block *_then, Block *_else)
         : cond(cond), _then(_then), _else(_else) {}
