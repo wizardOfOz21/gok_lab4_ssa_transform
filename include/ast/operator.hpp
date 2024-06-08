@@ -14,11 +14,16 @@ public:
     virtual bool is_return() { return false; };
     virtual bool is_while() { return false; }
     virtual bool is_if() { return false; }
+    virtual bool is_var_defs() { return false; }
+    virtual bool is_assign() { return false; }
 };
 
 class AssignAST : public OperatorAST
 {
 public:
+
+    bool is_assign() { return true; }
+
     string var_name;
     ExprAST *val;
 
@@ -144,6 +149,8 @@ public:
 class LocalVarDeclOpAST : public OperatorAST
 {
 public:
+    bool is_var_defs() { return true; }
+
     vector<LocalVarAST *> vars;
 
     LocalVarDeclOpAST(const vector<LocalVarAST *> &vars) : vars(vars) {}

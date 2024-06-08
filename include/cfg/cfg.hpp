@@ -8,6 +8,7 @@
 #include "ast/if.hpp"
 #include "ast/while.hpp"
 #include "utils.hpp"
+#include "cfg/mocks.hpp"
 
 using std::map;
 using std::pair;
@@ -30,6 +31,7 @@ public:
     set<Node *> Dom;
     set<Node *> frontier;
 
+    set<string> defs;
     set<string> phis;
 
     int get_name()
@@ -56,7 +58,7 @@ void connect_idom(Node *node, Node *idom)
     idom->dtree_childs.push_back(node);
 }
 
-pair<Node *, Node *> make_cfg(Block *block)
+pair<Node *, Node *> make_cfg(Block *block, map<string, set<Node *>> &names)
 {
     Node *root = new Node();
     Node *current = root;
@@ -66,12 +68,12 @@ pair<Node *, Node *> make_cfg(Block *block)
         if (op->is_if())
         {
             IFOperatorAST *if_op = (IFOperatorAST *)op;
-            auto then_cfg = make_cfg(if_op->_then);
+            auto then_cfg = make_cfg(if_op->_then, names);
             Node *then_start_block = then_cfg.first;
             Node *then_end_block = then_cfg.second;
             connect(current, then_start_block);
 
-            auto else_cfg = make_cfg(if_op->_else);
+            auto else_cfg = make_cfg(if_op->_else, names);
             Node *else_start_block = else_cfg.first;
             Node *else_end_block = else_cfg.second;
             connect(current, else_start_block);
@@ -87,7 +89,7 @@ pair<Node *, Node *> make_cfg(Block *block)
         if (op->is_while())
         {
             WhileAST *while_op = (WhileAST *)op;
-            auto while_cfg = make_cfg(while_op->body);
+            auto while_cfg = make_cfg(while_op->body, names);
             Node *while_start_block = while_cfg.first;
             Node *while_end_block = while_cfg.second;
 
@@ -99,6 +101,24 @@ pair<Node *, Node *> make_cfg(Block *block)
             connect(while_end_block, merge_block);
 
             current = merge_block;
+        }
+
+        if (op->is_var_defs())
+        {
+            LocalVarDeclOpAST *var_defs_op = (LocalVarDeclOpAST *)op;
+            for (auto def : var_defs_op->vars)
+            {
+                current->defs.insert(def->name);
+                names[def->name].insert(current);
+            }
+        }
+
+        if (op->is_assign())
+        {
+            AssignAST *assign_op = (AssignAST *)op;
+
+            current->defs.insert(assign_op->var_name);
+            names[assign_op->var_name].insert(current);
         }
 
         root->content->operators.push_back(op);
@@ -140,7 +160,8 @@ public:
         postorder_dfs(root);
     }
 
-    vector<Node*> get_nodes(Node* root) {
+    vector<Node *> get_nodes(Node *root)
+    {
         postorder(root);
         return order;
     }
@@ -189,7 +210,6 @@ set<set<Node *>> get_preds_doms(map<Node *, int> &postorder,
     }
     return res;
 }
-
 
 void get_dominators(const vector<Node *> &order)
 {
@@ -263,17 +283,18 @@ void get_dominator_tree(
     }
 }
 
-void get_dtree(vector<Node*> &postorder) {
+void get_dtree(vector<Node *> &postorder)
+{
     Node *root_node = postorder.back();
 
     auto reverse_postorder = postorder;
     std::reverse(postorder.begin(), postorder.end());
 
-    get_dominators(reverse_postorder); // считаем множества доминаторов неоптимально
+    get_dominators(reverse_postorder);                // считаем множества доминаторов неоптимально
     get_dominator_tree(reverse_postorder, root_node); // считаем дерево доминаторов перебором ):
 }
 
-void set_frontiers(vector<Node*> &nodes)
+void set_frontiers(vector<Node *> &nodes)
 {
     for (auto b : nodes)
     {
@@ -292,11 +313,14 @@ void set_frontiers(vector<Node*> &nodes)
     }
 }
 
-set<Node*> get_frontier(set<Node*> &S) {
-    set<Node*> res;
+set<Node *> get_frontier(set<Node *> &S)
+{
+    set<Node *> res;
 
-    for (auto n : S) {
-        for (auto b : n->frontier) {
+    for (auto n : S)
+    {
+        for (auto b : n->frontier)
+        {
             res.insert(b);
         }
     }
@@ -304,19 +328,23 @@ set<Node*> get_frontier(set<Node*> &S) {
     return res;
 }
 
-set<Node*> get_iterate_frontier(set<Node*> &S) {
+set<Node *> get_iterate_frontier(set<Node *> &S)
+{
 
-    set<Node*> F = S;
+    set<Node *> F = S;
 
     bool changed = true;
-    while (changed) {
+    while (changed)
+    {
         changed = false;
         auto uFS = F;
-        for (auto n : S) {
+        for (auto n : S)
+        {
             uFS.insert(n);
         }
         auto nF = get_frontier(uFS);
-        if (nF != F) {
+        if (nF != F)
+        {
             changed = true;
             F = nF;
         }
@@ -324,3 +352,145 @@ set<Node*> get_iterate_frontier(set<Node*> &S) {
     return F;
 }
 
+Node *get_cfg_mock(int num)
+{
+    switch (num)
+    {
+    case 1:
+    {
+        const int size = 6;
+        vector<Node *> n(size+1);
+        for (int i = 1; i <= size; ++i)
+        {
+            n[i] = new Node();
+        }
+        connect(n[6], n[4]);
+        connect(n[6], n[5]);
+        connect(n[5], n[1]);
+
+        connect(n[4], n[3]);
+        connect(n[4], n[2]);
+
+        connect(n[3], n[2]);
+        connect(n[2], n[3]);
+        connect(n[1], n[2]);
+        connect(n[2], n[1]);
+        return n[size];
+    }
+    case 2:
+    {
+        const int size = 5;
+        vector<Node *> n(size + 1);
+        for (int i = 1; i <= size; ++i)
+        {
+            n[i] = new Node();
+        }
+        connect(n[5], n[4]);
+        connect(n[5], n[3]);
+        connect(n[4], n[1]);
+
+        connect(n[3], n[2]);
+        connect(n[1], n[2]);
+        connect(n[2], n[1]);
+        return n[size];
+    }
+    case 3:
+    {
+        const int size = 4;
+        vector<Node *> n(size + 1);
+        for (int i = 1; i <= size; ++i)
+        {
+            n[i] = new Node();
+        }
+        connect(n[4], n[2]);
+        connect(n[4], n[3]);
+        connect(n[2], n[1]);
+        connect(n[3], n[1]);
+        return n[size];
+    }
+    default:
+        break;
+    }
+}
+
+
+void trace_cfg(const vector<Node *> &nodes)
+{
+    std::ofstream cfg_out("cfg");
+    print_cfg(nodes, cfg_out);
+    cfg_out.close();
+}
+
+void trace_names(map<string, set<Node*>> &names)
+{
+    std::ofstream names_def_out("names_def");
+    for (auto name_pair : names) {
+        names_def_out << name_pair.first << ": {"; 
+        for (auto n : name_pair.second) {
+            names_def_out << n->get_name() << ",";
+        }
+        names_def_out << "}" << std::endl;
+    }
+    names_def_out.close();
+}
+
+void trace_dtree(const vector<Node *> &nodes)
+{
+    std::ofstream dtree_out("dtree");
+    print_dtree(nodes, dtree_out);
+    dtree_out.close();
+}
+
+void trace_frontiers(const vector<Node *> &nodes)
+{
+    std::ofstream frontiers_out("frontiers");
+    for (auto n : nodes)
+    {
+        frontiers_out << n->get_name() << " : {";
+        for (auto d : n->frontier)
+        {
+            frontiers_out << d->get_name() << ",";
+        }
+        frontiers_out << "}" << std::endl;
+    }
+    frontiers_out.close();
+}
+
+void trace_doms(const vector<Node *> &nodes)
+{
+    std::ofstream doms_out("doms");
+    for (auto n : nodes)
+    {
+        doms_out << n->get_name() << " : {";
+        for (auto d : n->Dom)
+        {
+            doms_out << d->get_name() << ",";
+        }
+        doms_out << "}" << std::endl;
+    }
+    doms_out.close();
+}
+
+
+
+void ssa_transform(FuncAST *f, bool trace = false) {
+    map<string, set<Node*>> names_defs;
+    auto cfg_nodes = make_cfg(f->body, names_defs);
+
+    Node *root_node = cfg_nodes.first;
+    // Node *root_node = get_cfg_mock(3);
+
+    ByPass bp;
+    auto nodes = bp.get_nodes(root_node);
+
+    get_dtree(nodes);
+    set_frontiers(nodes);
+
+    if (trace) {
+        trace_names(names_defs);
+        trace_cfg(nodes);
+        trace_frontiers(nodes);
+        trace_dtree(nodes);
+        trace_doms(nodes);
+    }
+}

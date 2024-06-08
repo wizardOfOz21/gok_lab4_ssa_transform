@@ -9,51 +9,6 @@
 #include "error.hpp"
 #include "utils.hpp"
 #include "cfg/cfg.hpp"
-#include "cfg/mocks.hpp"
-
-void trace_cfg(const vector<Node *> &nodes)
-{
-    std::ofstream cfg_out("cfg");
-    print_cfg(nodes, cfg_out);
-    cfg_out.close();
-}
-
-void trace_dtree(const vector<Node *> &nodes)
-{
-    std::ofstream dtree_out("dtree");
-    print_dtree(nodes, dtree_out);
-    dtree_out.close();
-}
-
-void trace_frontiers(const vector<Node *> &nodes)
-{
-    std::ofstream frontiers_out("frontiers");
-    for (auto n : nodes)
-    {
-        frontiers_out << n->get_name() << " : {";
-        for (auto d : n->frontier)
-        {
-            frontiers_out << d->get_name() << ",";
-        }
-        frontiers_out << "}" << std::endl;
-    }
-    frontiers_out.close();
-}
-
-void trace_doms(const vector<Node *> &nodes)
-{
-    std::ofstream doms_out("doms");
-    for (auto n : nodes)
-    {
-        doms_out << n->get_name() << " : {";
-        for (auto d : n->Dom)
-        {
-            doms_out << d->get_name() << ",";
-        }
-        doms_out << "}" << std::endl;
-    }
-    doms_out.close();
-}
 
 int main(int argc, char **argv)
 {
@@ -103,25 +58,7 @@ int main(int argc, char **argv)
 
     FuncAST *f = dynamic_cast<FuncAST *>(root->decls[2]);
 
-    auto cfg_nodes = make_cfg(f->body);
-
-    // Node *root_node = cfg_nodes.first;
-    Node *root_node = get_cfg_mock(3);
-
-    ByPass bp;
-    auto nodes = bp.get_nodes(root_node);
-
-    get_dtree(nodes);
-
-    set_frontiers(nodes);
-
-    set<Node *> S = {root_node, root_node->dtree_childs[0], root_node->dtree_childs[1], root_node->dtree_childs[2]};
-    auto r = get_iterate_frontier(S);
-
-    trace_cfg(nodes);
-    trace_frontiers(nodes);
-    trace_dtree(nodes);
-    trace_doms(nodes);
+    ssa_transform(f, true);
 
     // std::cout << "Кодогенерация прошла успешно" << std::endl;
     // TheModule->print(outs(), nullptr);
