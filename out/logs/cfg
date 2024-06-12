@@ -1,36 +1,43 @@
 digraph {
-14[label="a = 6;\nc = 10;\n", xlabel="14"];
+14[label="a0 = 6;\nc0 = 10;\njump: a0 / c0 ? 7 : 13
+", xlabel="14"];
 14 -> 7;
 14 -> 13;
-13[label="", xlabel="13"];
+13[label="jump: 18 ? 9 : 12
+", xlabel="13"];
 13 -> 9;
 13 -> 12;
-12[label="", xlabel="12"];
+12[label="jump: 9 ? 11 : 10
+", xlabel="12"];
 12 -> 11;
 12 -> 10;
-11[label="a = phi();\na = 19;\n", xlabel="11"];
+11[label="a11 = phi(a0, a12);\na12 = 19;\njump: 9 ? 11 : 10
+", xlabel="11"];
 11 -> 11;
 11 -> 10;
-10[label="a = phi();\n", xlabel="10"];
+10[label="a10 = phi(a0, a12);\n", xlabel="10"];
 10 -> 8;
-9[label="a = 10;\n", xlabel="9"];
+9[label="a9 = 10;\n", xlabel="9"];
 9 -> 8;
-8[label="a = phi();\n", xlabel="8"];
+8[label="a8 = phi(a9, a10);\n", xlabel="8"];
 8 -> 4;
-7[label="", xlabel="7"];
+7[label="a0 + c0;\njump: 2 * a7 ? 6 : 5
+", xlabel="7"];
 7 -> 6;
 7 -> 5;
-6[label="a = phi();\nc = phi();\na = 7;\nc = a + 15 / 18 * 11;\n", xlabel="6"];
+6[label="a6 = phi(a0, a7);\nc3 = phi(c0, c4);\na7 = 7;\nc4 = a7 + 15 / 18 * 11;\njump: 2 * a7 ? 6 : 5
+", xlabel="6"];
 6 -> 6;
 6 -> 5;
-5[label="a = phi();\nc = phi();\n", xlabel="5"];
+5[label="a5 = phi(a0, a7);\nc2 = phi(c0, c4);\n", xlabel="5"];
 5 -> 4;
-4[label="a = phi();\nc = phi();\n", xlabel="4"];
+4[label="a1 = phi(a5, a8);\nc1 = phi(c2, c0);\njump: 8 ? 2 : 3
+", xlabel="4"];
 4 -> 2;
 4 -> 3;
-3[label="a = 20;\n", xlabel="3"];
+3[label="a4 = 20;\n", xlabel="3"];
 3 -> 1;
-2[label="a = 10;\n", xlabel="2"];
+2[label="a3 = 10;\n", xlabel="2"];
 2 -> 1;
-1[label="a = phi();\nb = a;\nreturn 1;\n", xlabel="1"];
+1[label="a2 = phi(a3, a4);\nb = a2 + c1;\nreturn 1;\n", xlabel="1"];
 }

@@ -24,7 +24,7 @@ public:
     virtual bool rename_rhs(string name, int i) { return false; }
     virtual bool rename_lhs(string name, int i) { return false; }
     virtual string stringify() { return ""; }
-    virtual bool is_name_def(string name) {return false;}
+    virtual bool is_name_def(string name) { return false; }
 
     std::string name_iter(std::string name, int i)
     {
@@ -40,7 +40,7 @@ public:
     string var_name;
     ExprAST *val;
 
-    bool is_name_def(string name) {return var_name == name;}
+    bool is_name_def(string name) { return var_name == name; }
     bool is_assign() { return true; }
 
     string stringify()
@@ -147,6 +147,18 @@ public:
 
     ExprOperatorAST(ExprAST *val) : val(val) {}
 
+    string stringify()
+    {
+        std::ostringstream ss;
+        ss << val->stringify() << ";\\n";
+        return ss.str();
+    }
+
+    bool rename_rhs(string name, int i)
+    {
+        return val->rename(name, i);
+    }
+
     void codegen()
     {
         Value *Val = val->codegen();
@@ -165,13 +177,53 @@ public:
     }
 };
 
+class PhiOperatorAST : public OperatorAST
+{
+public:
+    string var_name;
+    int version;
+    vector<int> args;
+
+    bool is_name_def(string _name) { return var_name == _name; }
+    bool is_phi() { return true; }
+
+    string stringify()
+    {
+        std::ostringstream ss;
+        ss << (version != -1 ? name_iter(var_name, version) : var_name) << " = phi(";
+
+        if (version != -1)
+        {
+            ss << name_iter(var_name, args[0]);
+            for (int i = 1; i < args.size(); ++i)
+            {
+                ss << ", " << name_iter(var_name, args[i]);
+            }
+        }
+        ss << ");\\n";
+        return ss.str();
+    }
+
+    bool rename_lhs(string name, int i)
+    {
+        if (var_name != name)
+        {
+            return false;
+        }
+        version = i;
+        return true;
+    }
+
+    PhiOperatorAST(const string &var_name, int args_length) : var_name(var_name), args(args_length, -1), version(-1) {}
+};
+
 class LocalVarAST
 {
 public:
     string name;
     ExprAST *init_val;
 
-    bool is_name_def(string _name) {return name == _name;}
+    bool is_name_def(string _name) { return name == _name; }
 
     std::string name_iter(std::string name, int i)
     {
@@ -234,26 +286,30 @@ public:
 
     vector<LocalVarAST *> vars;
 
-    bool rename_rhs(string name, int i) { 
-        for (auto v : vars) {
-            v -> rename_rhs(name, i);
+    bool rename_rhs(string name, int i)
+    {
+        for (auto v : vars)
+        {
+            v->rename_rhs(name, i);
         }
     }
-    bool rename_lhs(string name, int i) {
-        for (auto v : vars) {
-            v -> rename_lhs(name, i);
+    bool rename_lhs(string name, int i)
+    {
+        for (auto v : vars)
+        {
+            v->rename_lhs(name, i);
         }
     }
 
     string stringify()
     {
         std::ostringstream ss;
-        for (auto v : vars) {
+        for (auto v : vars)
+        {
             ss << v->stringify() << ";\\n";
         }
         return ss.str();
     }
-
 
     LocalVarDeclOpAST(const vector<LocalVarAST *> &vars) : vars(vars) {}
 
@@ -272,39 +328,6 @@ public:
             delete var;
         }
     }
-};
-
-class PhiOperatorAST : public OperatorAST
-{
-public:
-    string var_name;
-    map<int, string> args;
-
-    bool is_name_def(string _name) {return var_name == _name;}
-    bool is_phi() { return true; }
-
-    string stringify()
-    {
-        std::ostringstream ss;
-        ss << var_name << " = phi(";
-        for (auto arg : args) {
-            ss << arg.second << ", ";
-        }
-        ss << ");\\n";
-        return ss.str();
-    }
-
-    // void rename_lhs(string name, int i)
-    // {
-        
-    // }
-
-    void rename_arg(int j, int i)
-    {
-        args[j] = name_iter(var_name, i);
-    }
-
-    PhiOperatorAST(const string &var_name) : var_name(var_name) {}
 };
 
 // IFOperatorAST в if.hpp

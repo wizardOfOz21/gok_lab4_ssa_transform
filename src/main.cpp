@@ -36,7 +36,6 @@ int main(int argc, char **argv)
     try
     {
         root->declare();
-        root->codegen();
     }
     catch (DeclareExeption e)
     {

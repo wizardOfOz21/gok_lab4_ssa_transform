@@ -38,16 +38,18 @@ cfg_graph:
 dtree_graph:
 	dot -Tjpg -Gdpi=300 -o out/imgs/dtree.jpg out/logs/dtree;
 
-out: build/prog cfg_graph dtree_graph
-	@./build/prog input > output ${ARGS} 
+out: build/prog
+	@./build/prog input > output ${ARGS}
 # @ в начале говорит не выводить сами команды
+
+pout: out cfg_graph dtree_graph
 
 print:
 	echo ${BASE_HPP}
 
 # make run I=test/1
 
-.PHONY: mkdir clean run out cfg_graph dtree_graph
+.PHONY: mkdir clean run out cfg_graph dtree_graph pout
 
 mkdir:
 	mkdir -p build/src; \

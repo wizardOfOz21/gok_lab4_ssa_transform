@@ -34,6 +34,7 @@ public:
     set<string> defs;
     set<string> phis;
     vector<PhiOperatorAST *> phis_ops;
+    ExprAST *cond;
 
     string stringify()
     {
@@ -43,6 +44,13 @@ public:
             ss << op->stringify();
         }
         ss << content->stringify();
+        if (cond)
+        {
+            ss << "jump: ";
+            ss << cond->stringify() << " ? ";
+            ss << succs[0]->get_name() << " : ";
+            ss << succs[1]->get_name() << std::endl;
+        }
         return ss.str();
     }
 
@@ -107,6 +115,7 @@ pair<Node *, Node *> make_cfg(Block *block, map<string, set<Node *>> &names)
             connect(then_end_block, merge_block);
             connect(else_end_block, merge_block);
 
+            current->cond = if_op->cond;
             current = merge_block;
             continue;
         }
@@ -117,6 +126,8 @@ pair<Node *, Node *> make_cfg(Block *block, map<string, set<Node *>> &names)
             Node *while_start_block = while_cfg.first;
             Node *while_end_block = while_cfg.second;
 
+            while_end_block->cond = while_op->cond;
+
             Node *merge_block = new Node();
 
             connect(current, while_start_block);
@@ -124,6 +135,7 @@ pair<Node *, Node *> make_cfg(Block *block, map<string, set<Node *>> &names)
             connect(while_end_block, while_start_block);
             connect(while_end_block, merge_block);
 
+            current->cond = while_op->cond;
             current = merge_block;
             continue;
         }
@@ -285,7 +297,6 @@ void get_dominators(const vector<Node *> &order)
 void get_dominator_tree(
     vector<Node *> nodes, Node *root)
 {
-    // это новый граф, с новыми ребрами, но старым содержимым в вершинах
     for (auto n : nodes)
     {
         // ищем idom и цепляем его к графу
@@ -315,7 +326,7 @@ void get_dominator_tree(
 
         if (!has_idom && (n != root))
         {
-            std::cout << "Для " << n->name + 1 << " не нашлось idom'а " << std::endl;
+            std::cout << "Для " << n->get_name() << " не нашлось idom'а " << std::endl;
         }
     }
 }
@@ -518,7 +529,7 @@ void insert_phis(map<string, set<Node *>> &names_defs)
         {
             n->phis.insert(name_pair.first);
             vector<OperatorAST *> &n_op_list = n->content->operators;
-            n->phis_ops.push_back(new PhiOperatorAST(name_pair.first));
+            n->phis_ops.push_back(new PhiOperatorAST(name_pair.first, n->preds.size()));
         }
     }
 }
@@ -526,42 +537,37 @@ void insert_phis(map<string, set<Node *>> &names_defs)
 void traverse(Node *v, string p, vector<int> &stack, int &counter)
 {
     Block *content = v->content;
-    int use_counter = 0;
+    int ver_counter = 0; // количество версий переменной p в блоке
+    for (auto phi_op : v->phis_ops)
+    {
+        const int i = counter;
+        if (phi_op->rename_lhs(p, i))
+        {
+            ver_counter++;
+            stack.push_back(i);
+            counter++;
+        };
+    }
     for (auto op : content->operators)
     {
         if (!op->is_phi())
         {
-            const int i = stack.back();
-            if (op->rename_rhs(p, i))
-            {
-                use_counter++;
-            };
+            op->rename_rhs(p, stack.back());
         }
-        if (op->is_assign() && (((AssignAST *)op)->var_name == p))
+        if (op->is_assign())
         {
             const int i = counter;
-            op->rename_lhs(p, i);
-            stack.push_back(i);
-            counter += 1;
-        }
-        if (op->is_var_defs())
-        {
-            auto vars = ((LocalVarDeclOpAST *)op)->vars;
-
-            for (auto v : vars)
+            if (op->rename_lhs(p, i))
             {
-                if (v->is_name_def(p))
-                {
-                    const int i = counter;
-                    v->rename_lhs(p, i);
-                    stack.push_back(i);
-                    counter += 1;
-                }
-            }
+                ver_counter++;
+                stack.push_back(i);
+                counter++;
+            };
         }
-        if (op->is_phi() && op->is_name_def(p)) {
-            
-        }
+    }
+    if (v->cond)
+    {
+        v->cond->rename(p, stack.back());
     }
     for (auto s : v->succs)
     {
@@ -571,7 +577,7 @@ void traverse(Node *v, string p, vector<int> &stack, int &counter)
         {
             if (phi->var_name == p)
             {
-                phi->rename_arg(j, i);
+                phi->args[j] = i;
             }
         }
     }
@@ -579,17 +585,23 @@ void traverse(Node *v, string p, vector<int> &stack, int &counter)
     {
         traverse(child, p, stack, counter);
     }
-    for (int i = 0; i < use_counter; ++i)
+    // снимаем все версии определенные в блоке
+    // при переходе к обходу его сиблинга
+    for (int i = 0; i < ver_counter; ++i)
     {
         stack.pop_back();
     }
 }
 
-void rename_vars(Node *root_node, string var)
+void rename_var(Node *root_node, string var)
 {
     int counter = 0;
     vector<int> stack;
-    stack.push_back(0);
+    stack.push_back(-1);
+    // дно стека не используется для переименования,
+    // так как семантически перед любым использованием
+    // переменной должно быть присваивание ей, то есть в стеке что-то будет,
+    // дно – необходимость реализации
     traverse(root_node, var, stack, counter);
 }
 
@@ -609,12 +621,13 @@ void ssa_transform(FuncAST *f, bool trace = false)
 
     insert_phis(names_defs);
 
-    // for (auto n_pair : names_defs)
-    // {
-    //     const string name = n_pair.first;
-    //     rename_vars(root_node, name);
-    // }
-    // rename_vars(root_node, "a");
+    // rename_var(root_node, "a");
+    // rename_var(root_node, "c");
+
+    for (auto name : names_defs)
+    {
+        rename_var(root_node, name.first);
+    }
 
     if (trace)
     {
