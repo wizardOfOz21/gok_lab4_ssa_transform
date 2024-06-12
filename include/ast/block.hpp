@@ -1,10 +1,21 @@
 #pragma once
+#include <sstream>
+
 #include "operator.hpp"
 
 class Block
 {
 public:
     vector<OperatorAST *> operators;
+
+    string stringify() {
+        std::ostringstream ss;
+        for (auto op : operators) {
+            ss << op->stringify();
+        }
+        return ss.str();
+    }
+
     Block(){}
     Block(const vector<OperatorAST *> &ops) : operators(ops) {}
     ~Block()

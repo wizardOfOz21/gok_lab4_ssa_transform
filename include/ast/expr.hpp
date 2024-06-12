@@ -2,6 +2,8 @@
 
 #include <vector>
 #include <string>
+#include <sstream>
+
 #include "builder.hpp"
 
 using std::string;
@@ -14,12 +16,28 @@ public:
     virtual Value *codegen() {};
     virtual bool has_refs() { return false; };
     virtual bool has_calls() { return false; };
+    virtual bool rename(string name, int i) {};
+    virtual string stringify() {}
+
+    std::string name_iter(std::string name, int i)
+    {
+        std::ostringstream ss;
+        ss << name << i;
+        return ss.str();
+    }
 };
 
 class FCallAST : public ExprAST
 {
 public:
     string name;
+
+    string stringify()
+    {
+        std::ostringstream ss;
+        ss << name << "()";
+        return ss.str();
+    }
 
     FCallAST(const string &name)
         : name(name) {}
@@ -46,6 +64,23 @@ class VariableAST : public ExprAST
 public:
     string name;
 
+    string stringify()
+    {
+        std::ostringstream ss;
+        ss << name;
+        return ss.str();
+    }
+
+    bool rename(string name_to_rename, int i)
+    {
+        if (name != name_to_rename)
+        {
+            return false;
+        }
+        name = name_iter(name_to_rename, i);
+        return true;
+    };
+
     VariableAST(const string &name)
         : name(name) {}
 
@@ -71,6 +106,13 @@ class NumberAST : public ExprAST
 public:
     int val;
 
+    string stringify()
+    {
+        std::ostringstream ss;
+        ss << val;
+        return ss.str();
+    }
+
     NumberAST(int val)
         : val(val){};
 
@@ -85,6 +127,18 @@ class UnaryOpExprAST : public ExprAST
 public:
     char op;
     ExprAST *arg;
+
+    string stringify()
+    {
+        std::ostringstream ss;
+        ss << op << arg->stringify();
+        return ss.str();
+    }
+
+    bool rename(string name_to_rename, int i)
+    {
+        return arg->rename(name_to_rename, i);
+    }
 
     UnaryOpExprAST(char op, ExprAST *arg)
         : op(op), arg(arg) {}
@@ -122,6 +176,18 @@ public:
     char op;
     ExprAST *lhs;
     ExprAST *rhs;
+
+    string stringify()
+    {
+        std::ostringstream ss;
+        ss << lhs->stringify() << " " << op << " " << rhs->stringify();
+        return ss.str();
+    }
+
+    bool rename(string name_to_rename, int i)
+    {
+        return lhs->rename(name_to_rename, i) || rhs->rename(name_to_rename, i);
+    }
 
     BinaryOpExprAST(char op, ExprAST *lhs, ExprAST *rhs)
         : op(op), lhs(lhs), rhs(rhs) {}

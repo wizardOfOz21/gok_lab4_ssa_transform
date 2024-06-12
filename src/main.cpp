@@ -58,7 +58,7 @@ int main(int argc, char **argv)
 
     FuncAST *f = dynamic_cast<FuncAST *>(root->decls[2]);
 
-    ssa_transform(f, true);
+    ssa_transform(f, true); 
 
     // std::cout << "Кодогенерация прошла успешно" << std::endl;
     // TheModule->print(outs(), nullptr);

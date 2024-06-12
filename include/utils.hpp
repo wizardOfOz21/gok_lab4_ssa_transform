@@ -2,10 +2,12 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <sstream>
 
 using std::vector;
 using std::map;
 using std::set;
+using std::string;
 
 template <class T>
 vector<T> *all(vector<T> *a, vector<T> *b)

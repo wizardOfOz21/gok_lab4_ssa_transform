@@ -4,11 +4,11 @@
 #include <set>
 #include <map>
 #include <iostream>
+
 #include "ast/block.hpp"
 #include "ast/if.hpp"
 #include "ast/while.hpp"
 #include "utils.hpp"
-#include "cfg/mocks.hpp"
 
 using std::map;
 using std::pair;
@@ -33,6 +33,30 @@ public:
 
     set<string> defs;
     set<string> phis;
+    vector<PhiOperatorAST *> phis_ops;
+
+    string stringify()
+    {
+        std::ostringstream ss;
+        for (auto op : phis_ops)
+        {
+            ss << op->stringify();
+        }
+        ss << content->stringify();
+        return ss.str();
+    }
+
+    int which_pred(Node *node)
+    {
+        for (int i = 0; i < preds.size(); ++i)
+        {
+            if (preds[i] == node)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
 
     int get_name()
     {
@@ -84,9 +108,9 @@ pair<Node *, Node *> make_cfg(Block *block, map<string, set<Node *>> &names)
             connect(else_end_block, merge_block);
 
             current = merge_block;
+            continue;
         }
-
-        if (op->is_while())
+        else if (op->is_while())
         {
             WhileAST *while_op = (WhileAST *)op;
             auto while_cfg = make_cfg(while_op->body, names);
@@ -101,18 +125,17 @@ pair<Node *, Node *> make_cfg(Block *block, map<string, set<Node *>> &names)
             connect(while_end_block, merge_block);
 
             current = merge_block;
+            continue;
         }
-
-        if (op->is_var_defs())
-        {
-            LocalVarDeclOpAST *var_defs_op = (LocalVarDeclOpAST *)op;
-            for (auto def : var_defs_op->vars)
-            {
-                current->defs.insert(def->name);
-                names[def->name].insert(current);
-            }
-        }
-
+        // else if (op->is_var_defs())
+        // {
+        //     LocalVarDeclOpAST *var_defs_op = (LocalVarDeclOpAST *)op;
+        //     for (auto def : var_defs_op->vars)
+        //     {
+        //         current->defs.insert(def->name);
+        //         names[def->name].insert(current);
+        //     }
+        // }
         if (op->is_assign())
         {
             AssignAST *assign_op = (AssignAST *)op;
@@ -121,7 +144,7 @@ pair<Node *, Node *> make_cfg(Block *block, map<string, set<Node *>> &names)
             names[assign_op->var_name].insert(current);
         }
 
-        root->content->operators.push_back(op);
+        current->content->operators.push_back(op);
     }
 
     return pair(root, current);
@@ -167,13 +190,27 @@ public:
     }
 };
 
-void print_cfg(vector<Node *> nodes, std::ostream &out)
+void print_cfg(vector<Node *> nodes, std::ostream &out, bool info = false)
 {
     out << "digraph {" << std::endl;
     for (auto n : nodes)
     {
         const int name = n->get_name();
-        out << name << "[label=<" << name << ">];" << std::endl;
+        string label;
+        string xlabel;
+        if (info)
+        {
+            label = n->stringify();
+            xlabel = std::to_string(name);
+        }
+        else
+        {
+            label = std::to_string(name);
+        }
+        out << name;
+        out << "[label=\"" << label << "\"";
+        out << ", xlabel=\"" << xlabel << "\"";
+        out << "];" << std::endl;
         for (auto s : n->succs)
         {
             const int s_name = s->get_name();
@@ -359,7 +396,7 @@ Node *get_cfg_mock(int num)
     case 1:
     {
         const int size = 6;
-        vector<Node *> n(size+1);
+        vector<Node *> n(size + 1);
         for (int i = 1; i <= size; ++i)
         {
             n[i] = new Node();
@@ -413,20 +450,21 @@ Node *get_cfg_mock(int num)
     }
 }
 
-
-void trace_cfg(const vector<Node *> &nodes)
+void trace_cfg(const vector<Node *> &nodes, bool info = false)
 {
-    std::ofstream cfg_out("cfg");
-    print_cfg(nodes, cfg_out);
+    std::ofstream cfg_out("out/logs/cfg");
+    print_cfg(nodes, cfg_out, info);
     cfg_out.close();
 }
 
-void trace_names(map<string, set<Node*>> &names)
+void trace_names(map<string, set<Node *>> &names)
 {
-    std::ofstream names_def_out("names_def");
-    for (auto name_pair : names) {
-        names_def_out << name_pair.first << ": {"; 
-        for (auto n : name_pair.second) {
+    std::ofstream names_def_out("out/logs/names_def");
+    for (auto name_pair : names)
+    {
+        names_def_out << name_pair.first << ": {";
+        for (auto n : name_pair.second)
+        {
             names_def_out << n->get_name() << ",";
         }
         names_def_out << "}" << std::endl;
@@ -436,14 +474,14 @@ void trace_names(map<string, set<Node*>> &names)
 
 void trace_dtree(const vector<Node *> &nodes)
 {
-    std::ofstream dtree_out("dtree");
+    std::ofstream dtree_out("out/logs/dtree");
     print_dtree(nodes, dtree_out);
     dtree_out.close();
 }
 
 void trace_frontiers(const vector<Node *> &nodes)
 {
-    std::ofstream frontiers_out("frontiers");
+    std::ofstream frontiers_out("out/logs/frontiers");
     for (auto n : nodes)
     {
         frontiers_out << n->get_name() << " : {";
@@ -458,7 +496,7 @@ void trace_frontiers(const vector<Node *> &nodes)
 
 void trace_doms(const vector<Node *> &nodes)
 {
-    std::ofstream doms_out("doms");
+    std::ofstream doms_out("out/logs/doms");
     for (auto n : nodes)
     {
         doms_out << n->get_name() << " : {";
@@ -471,10 +509,93 @@ void trace_doms(const vector<Node *> &nodes)
     doms_out.close();
 }
 
+void insert_phis(map<string, set<Node *>> &names_defs)
+{
+    for (auto name_pair : names_defs)
+    {
+        auto phi_insert_blocks = get_iterate_frontier(name_pair.second);
+        for (auto n : phi_insert_blocks)
+        {
+            n->phis.insert(name_pair.first);
+            vector<OperatorAST *> &n_op_list = n->content->operators;
+            n->phis_ops.push_back(new PhiOperatorAST(name_pair.first));
+        }
+    }
+}
 
+void traverse(Node *v, string p, vector<int> &stack, int &counter)
+{
+    Block *content = v->content;
+    int use_counter = 0;
+    for (auto op : content->operators)
+    {
+        if (!op->is_phi())
+        {
+            const int i = stack.back();
+            if (op->rename_rhs(p, i))
+            {
+                use_counter++;
+            };
+        }
+        if (op->is_assign() && (((AssignAST *)op)->var_name == p))
+        {
+            const int i = counter;
+            op->rename_lhs(p, i);
+            stack.push_back(i);
+            counter += 1;
+        }
+        if (op->is_var_defs())
+        {
+            auto vars = ((LocalVarDeclOpAST *)op)->vars;
 
-void ssa_transform(FuncAST *f, bool trace = false) {
-    map<string, set<Node*>> names_defs;
+            for (auto v : vars)
+            {
+                if (v->is_name_def(p))
+                {
+                    const int i = counter;
+                    v->rename_lhs(p, i);
+                    stack.push_back(i);
+                    counter += 1;
+                }
+            }
+        }
+        if (op->is_phi() && op->is_name_def(p)) {
+            
+        }
+    }
+    for (auto s : v->succs)
+    {
+        int j = s->which_pred(v);
+        const int i = stack.back();
+        for (auto phi : s->phis_ops)
+        {
+            if (phi->var_name == p)
+            {
+                phi->rename_arg(j, i);
+            }
+        }
+    }
+    for (auto child : v->dtree_childs)
+    {
+        traverse(child, p, stack, counter);
+    }
+    for (int i = 0; i < use_counter; ++i)
+    {
+        stack.pop_back();
+    }
+}
+
+void rename_vars(Node *root_node, string var)
+{
+    int counter = 0;
+    vector<int> stack;
+    stack.push_back(0);
+    traverse(root_node, var, stack, counter);
+}
+
+void ssa_transform(FuncAST *f, bool trace = false)
+{
+    map<string, set<Node *>> names_defs;
     auto cfg_nodes = make_cfg(f->body, names_defs);
 
     Node *root_node = cfg_nodes.first;
@@ -486,9 +607,19 @@ void ssa_transform(FuncAST *f, bool trace = false) {
     get_dtree(nodes);
     set_frontiers(nodes);
 
-    if (trace) {
+    insert_phis(names_defs);
+
+    // for (auto n_pair : names_defs)
+    // {
+    //     const string name = n_pair.first;
+    //     rename_vars(root_node, name);
+    // }
+    // rename_vars(root_node, "a");
+
+    if (trace)
+    {
         trace_names(names_defs);
-        trace_cfg(nodes);
+        trace_cfg(nodes, true);
         trace_frontiers(nodes);
         trace_dtree(nodes);
         trace_doms(nodes);

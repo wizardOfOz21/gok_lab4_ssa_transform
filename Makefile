@@ -32,7 +32,13 @@ ${BISON_CPP} ${BISON_HPP}: src/parser.y
 run: build/prog
 	./build/prog ${I}
 
-out: build/prog
+cfg_graph:
+	dot -Tjpg -Gdpi=300 -o out/imgs/cfg.jpg out/logs/cfg;
+
+dtree_graph:
+	dot -Tjpg -Gdpi=300 -o out/imgs/dtree.jpg out/logs/dtree;
+
+out: build/prog cfg_graph dtree_graph
 	@./build/prog input > output ${ARGS} 
 # @ в начале говорит не выводить сами команды
 
@@ -41,7 +47,7 @@ print:
 
 # make run I=test/1
 
-.PHONY: mkdir clean run
+.PHONY: mkdir clean run out cfg_graph dtree_graph
 
 mkdir:
 	mkdir -p build/src; \
