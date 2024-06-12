@@ -8,7 +8,7 @@
 #include "ast/program.hpp"
 #include "error.hpp"
 #include "utils.hpp"
-#include "cfg/cfg.hpp"
+#include "ssa/ssa.hpp"
 
 int main(int argc, char **argv)
 {
@@ -57,7 +57,7 @@ int main(int argc, char **argv)
 
     FuncAST *f = dynamic_cast<FuncAST *>(root->decls[2]);
 
-    ssa_transform(f, true); 
+    ssa_transform(f->body, true); 
 
     // std::cout << "Кодогенерация прошла успешно" << std::endl;
     // TheModule->print(outs(), nullptr);
